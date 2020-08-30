@@ -1,0 +1,101 @@
+'
+' Author: Wayne Kirk Schmidt (wayne.kirk.schmidt@gmail.com)
+' Language: VBA for Excel
+'
+' Key Components:
+'  + Inbuilt compiler check for OS type
+'  + FormatDate for Date and Time
+'  + Application.Separator for OS agnostic path creation
+'  + MacScript returning POSIX path for OS path
+'  + Windows Environ to get HOME
+'  + Application Current Sheet
+'  + Disabling Zoom and Enabling Fit to Tall and Wide # of pages
+
+'
+' This sample Macro and with a helper function are combined to make a OS independent PDF Exporter
+' It uses an inbuilt comparison to see if Mac or not and calculate the path to the HOME/Downloads
+
+' The script then asks for two inputs; a client tag and a range to export into a report file
+' using inputs, the script takes calculated date and time stamp to export contents to a PDF file
+
+' To adjust the orientation, paper size, and other attributes the following may be useful:
+' https://docs.microsoft.com/en-us/office/vba/api/excel.pagesetup.papersize
+' https://docs.microsoft.com/en-us/office/vba/api/excel.pagesetup.printarea
+' https://docs.microsoft.com/en-us/office/vba/api/excel.pagesetup.orientation
+
+Sub MacOrWindowsReportExporter()
+
+  Dim DirSep As String
+  DirSep = Application.PathSeparator
+ 
+  Dim DateValue As String
+  DateValue = Format(Date, "yyyyMMdd")
+ 
+  Dim TimeValue As String
+  TimeValue = Format(DateTime.Now, "hhmmss")
+ 
+  Dim ReportDir As String
+  Dim ReportFile As String
+  Dim OutputFile As String
+ 
+  Dim myClient As Variant
+  Dim myRange As Variant
+ 
+  #If Mac Then
+     ReportDir = MacScript("return POSIX path of (path to Downloads folder ) as string")
+  #Else
+     HomeDir = Environ("USERPROFILE")
+     ReportDir = HomeDir & DirSep & "Downloads"
+  #End If
+ 
+  MsgBox "Report Directory: " & ReportDir
+  
+  If Len(Dir(ReportDir, vbDirectory)) = 0 Then
+    MsgBox "## Creating ## " & ReportDir
+    MkDir ReportDir
+  End If
+ 
+  myClient = InputBox("Used in ReportName", "Specify Report Tag")
+  myRange = InputBox("From-Cell:To-Cell", "Specify Cell Range")
+  
+  ReportFile = myClient & "-" & "report" & "-" & DateValue & "." & TimeValue & ".pdf"
+  MsgBox "Report OutputFile: " & ReportFile
+  
+  OutputFile = ReportDir & DirSep & ReportFile
+  With ActiveSheet.PageSetup
+    .Orientation = xlPortrait
+    .CenterHeader = ReportFile
+    .PrintArea = myRange
+    .Zoom = False
+    .FitToPagesTall = 1
+    .FitToPagesWide = False
+  End With
+ 
+  ActiveSheet.ExportAsFixedFormat _
+    Type:=xlTypePDF, _
+    Filename:=OutputFile, _
+    Quality:=xlQualityStandard, _
+    IncludeDocProperties:=False, _
+    IgnorePrintAreas:=False, _
+    From:=1, _
+    To:=1, _
+    OpenAfterPublish:=False
+    
+ ' Range(myRange).ExportAsFixedFormat Type:=xlTypePDF, Filename:= _
+ '    PDFDir & DirSep & PDFFile, Quality:=xlQualityStandard, _
+ '    IncludeDocProperties:=True, IgnorePrintAreas:=False, OpenAfterPublish:=False
+
+End Sub
+
+Function IsMac() As Boolean
+#If Mac Then
+    IsMac = True
+#End If
+
+End Function
+
+Function Is64BitOffice() As Boolean
+#If Win64 Then
+    Is64BitOffice = True
+#End If
+End Function
